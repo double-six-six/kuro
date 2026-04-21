@@ -42,51 +42,20 @@ jobs:
           AUTO_REPLENISH: ${{ secrets.AUTO_REPLENISH || 'true' }}
           RETRY_TIMES: ${{ secrets.RETRY_TIMES || '3' }}
         run: |
-          cat > config/${USER_NAME}.yaml <<EOF
-          enable: true
-          token: ${USER_TOKEN}
-          completed: false
-          auto_reple_sign: ${AUTO_REPLENISH}
-          retry_times: ${RETRY_TIMES}
-          game_info:
-            distinct_id: ""
-            devcode: ""
-            wwroleId: ""
-            eeeroleId: ""
-          user_info:
-            userId: ""
-          EOF
+          echo "enable: true" > config/${USER_NAME}.yaml
+          echo "token: ${USER_TOKEN}" >> config/${USER_NAME}.yaml
+          echo "completed: false" >> config/${USER_NAME}.yaml
+          echo "auto_reple_sign: ${AUTO_REPLENISH}" >> config/${USER_NAME}.yaml
+          echo "retry_times: ${RETRY_TIMES}" >> config/${USER_NAME}.yaml
+          echo "game_info:" >> config/${USER_NAME}.yaml
+          echo "  distinct_id: \"\"" >> config/${USER_NAME}.yaml
+          echo "  devcode: \"\"" >> config/${USER_NAME}.yaml
+          echo "  wwroleId: \"\"" >> config/${USER_NAME}.yaml
+          echo "  eeeroleId: \"\"" >> config/${USER_NAME}.yaml
+          echo "user_info:" >> config/${USER_NAME}.yaml
+          echo "  userId: \"\"" >> config/${USER_NAME}.yaml
           
           echo "用户配置文件已创建: config/${USER_NAME}.yaml"
-      
-      - name: 创建多用户配置文件
-        env:
-          USERS_JSON: ${{ secrets.USERS_JSON }}
-        run: |
-          if [ -n "$USERS_JSON" ]; then
-            echo "$USERS_JSON" | jq -c '.[]' 2>/dev/null | while read -r user; do
-              username=$(echo "$user" | jq -r '.username')
-              token=$(echo "$user" | jq -r '.token')
-              auto_replenish=$(echo "$user" | jq -r '.auto_replenish // "true"')
-              retry_times=$(echo "$user" | jq -r '.retry_times // "3"')
-              
-              cat > "config/${username}.yaml" <<EOF
-              enable: true
-              token: ${token}
-              completed: false
-              auto_reple_sign: ${auto_replenish}
-              retry_times: ${retry_times}
-              game_info:
-                distinct_id: ""
-                devcode: ""
-                wwroleId: ""
-                eeeroleId: ""
-              user_info:
-                userId: ""
-              EOF
-              echo "已创建: config/${username}.yaml"
-            done
-          fi
       
       - name: 创建 Qmsg 推送配置文件
         env:
@@ -95,16 +64,15 @@ jobs:
           QMSG_KEY: ${{ secrets.QMSG_KEY }}
         run: |
           if [ "$PUSH_ENABLE" = "true" ] && [ -n "$QMSG_KEY" ]; then
-            cat > config/push.ini <<EOF
-            [setting]
-            enable = true
-            push_level = ${PUSH_LEVEL}
-            push_server = qmsg
-            push_block_keys =
+            echo "[setting]" > config/push.ini
+            echo "enable = true" >> config/push.ini
+            echo "push_level = ${PUSH_LEVEL}" >> config/push.ini
+            echo "push_server = qmsg" >> config/push.ini
+            echo "push_block_keys =" >> config/push.ini
+            echo "" >> config/push.ini
+            echo "[qmsg]" >> config/push.ini
+            echo "key = ${QMSG_KEY}" >> config/push.ini
             
-            [qmsg]
-            key = ${QMSG_KEY}
-            EOF
             echo "Qmsg 推送配置文件已创建"
           else
             echo "推送未启用或 QMSG_KEY 未设置，跳过创建 push.ini"
@@ -117,11 +85,8 @@ jobs:
           ls -la config/
           echo "=== push.ini 内容 ==="
           cat config/push.ini 2>/dev/null || echo "push.ini 不存在"
-          echo "=== 用户配置内容（隐藏token）==="
-          for f in config/*.yaml; do
-            echo "--- $f ---"
-            grep -v "token:" "$f" 2>/dev/null || cat "$f"
-          done
+          echo "=== 用户配置内容 ==="
+          cat config/*.yaml 2>/dev/null || echo "无用户配置"
       
       - name: 执行签到
         run: |

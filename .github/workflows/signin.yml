@@ -1,19 +1,21 @@
 name: KuroBBS Auto SignIn
 
 on:
-  # 定时触发 - 北京时间每天 09:30 执行（UTC 01:30）
   schedule:
+    # 每天上午 9:30 执行
     - cron: '0 16 * * *'
-  # 手动触发
   workflow_dispatch:
+    # 支持手动触发，可传入参数
+    inputs:
+      debug:
+        description: 'Debug mode'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   signin:
     runs-on: ubuntu-latest
-    
-    # 设置时区为北京时间
-    env:
-      TZ: Asia/Shanghai
     
     steps:
       - name: Checkout code
@@ -27,14 +29,96 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
+          pip install -e .
+          # 确保所有依赖都安装
           pip install pyyaml requests pytz httpx
       
       - name: Create config directory
-        run: |
-          mkdir -p config log
+        run: mkdir -p config
       
       - name: Create user config
         env:
+          USER_NAME: ${{ secrets.USER_NAME }}
+          USER_TOKEN: ${{ secrets.USER_TOKEN }}
+          AUTO_REPLENISH: ${{ secrets.AUTO_REPLENISH || 'true' }}
+          RETRY_TIMES: ${{ secrets.RETRY_TIMES || '3' }}
+        run: |
+          if [ -z "$USER_NAME" ] || [ -z "$USER_TOKEN" ]; then
+            echo "错误: USER_NAME 和 USER_TOKEN 必须设置"
+            exit 1
+          fi
+          
+          cat > config/${USER_NAME}.yaml << EOF
+          enable: true
+          token: ${USER_TOKEN}
+          completed: false
+          auto_reple_sign: ${AUTO_REPLENISH}
+          retry_times: ${RETRY_TIMES}
+          game_info:
+            distinct_id: ""
+            devcode: ""
+            wwroleId: ""
+            eeeroleId: ""
+          user_info:
+            userId: ""
+          EOF
+          
+          echo "用户配置文件已创建: config/${USER_NAME}.yaml"
+          cat config/${USER_NAME}.yaml
+      
+      - name: Create push config (if enabled)
+        env:
+          PUSH_ENABLE: ${{ secrets.PUSH_ENABLE }}
+          PUSH_LEVEL: ${{ secrets.PUSH_LEVEL || '1' }}
+          PUSH_SERVER: ${{ secrets.PUSH_SERVER }}
+          PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
+        if: env.PUSH_ENABLE == 'true' && env.PUSH_SERVER != ''
+        run: |
+          cat > config/push.ini << 'INI'
+          [setting]
+          enable = true
+          push_level = ${PUSH_LEVEL}
+          push_server = ${PUSH_SERVER}
+          push_block_keys =
+          
+          [${PUSH_SERVER}]
+          token = ${PUSH_TOKEN}
+          INI
+          
+          # 替换变量
+          sed -i "s/\${PUSH_LEVEL}/${PUSH_LEVEL}/g" config/push.ini
+          sed -i "s/\${PUSH_SERVER}/${PUSH_SERVER}/g" config/push.ini
+          sed -i "s/\${PUSH_TOKEN}/${PUSH_TOKEN}/g" config/push.ini
+          
+          # 如果是 pushplus，不需要额外配置
+          if [ "${PUSH_SERVER}" = "pushplus" ]; then
+            echo "pushplus 配置完成"
+          fi
+          
+          echo "推送配置文件已创建"
+          cat config/push.ini
+      
+      - name: List config files
+        run: |
+          echo "=== Config directory contents ==="
+          ls -la config/
+          echo "================================"
+      
+      - name: Run signin script
+        run: |
+          if [ "${{ github.event.inputs.debug }}" = "true" ]; then
+            python main.py --debug
+          else
+            python main.py
+          fi
+      
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signin-logs-${{ github.run_id }}
+          path: log/
+          retention-days: 7        env:
           KURO_TOKEN: ${{ secrets.KURO_TOKEN }}
           KURO_USERNAME: ${{ secrets.KURO_USERNAME }}
           AUTO_REPLENISH: ${{ secrets.AUTO_REPLENISH || 'true' }}

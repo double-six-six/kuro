@@ -1,0 +1,86 @@
+name: KuroBBS Auto SignIn
+
+on:
+  # 定时触发 - 每天早上 9:30 运行（可根据需要调整）
+  schedule:
+    - cron: '30 9 * * *'
+  # 手动触发
+  workflow_dispatch:
+  # 推送触发（用于测试，可选）
+  # push:
+  #   branches: [ main ]
+
+jobs:
+  signin:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pyyaml requests pytz httpx
+      
+      - name: Create config directory
+        run: |
+          mkdir -p config
+          mkdir -p log
+      
+      - name: Create user config
+        env:
+          KURO_TOKEN: ${{ secrets.KURO_TOKEN }}
+          KURO_USERNAME: ${{ secrets.KURO_USERNAME }}
+          AUTO_REPLENISH: ${{ secrets.AUTO_REPLENISH || 'true' }}
+        run: |
+          cat > config/${KURO_USERNAME}.yaml << EOF
+          enable: true
+          token: ${KURO_TOKEN}
+          completed: false
+          auto_reple_sign: ${AUTO_REPLENISH}
+          retry_times: 3
+          game_info:
+            distinct_id: ""
+            devcode: ""
+            wwroleId: ""
+            eeeroleId: ""
+          user_info:
+            userId: ""
+          EOF
+          echo "配置文件已创建: config/${KURO_USERNAME}.yaml"
+      
+      - name: Create push config (optional)
+        env:
+          PUSH_ENABLE: ${{ secrets.PUSH_ENABLE || 'false' }}
+          PUSH_SERVER: ${{ secrets.PUSH_SERVER }}
+          PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
+        run: |
+          if [ "${PUSH_ENABLE}" = "true" ]; then
+            cat > config/push.ini << EOF
+          [setting]
+          enable = true
+          push_level = ${PUSH_LEVEL:-2}
+          push_server = ${PUSH_SERVER}
+          
+          [${PUSH_SERVER}]
+          token = ${PUSH_TOKEN}
+          EOF
+            echo "推送配置已创建"
+          fi
+      
+      - name: Run signin script
+        run: python main.py
+      
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signin-logs
+          path: log/
+          retention-days: 7

@@ -2,7 +2,7 @@ name: KuroBBS Auto SignIn
 
 on:
   schedule:
-    - cron: '0 16 * * *'
+    - cron: '30 9 * * *'
   workflow_dispatch:
     inputs:
       debug:

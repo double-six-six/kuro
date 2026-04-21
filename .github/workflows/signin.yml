@@ -42,7 +42,7 @@ jobs:
           AUTO_REPLENISH: ${{ secrets.AUTO_REPLENISH || 'true' }}
           RETRY_TIMES: ${{ secrets.RETRY_TIMES || '3' }}
         run: |
-          cat > config/${USER_NAME}.yaml << EOF
+          cat > config/${USER_NAME}.yaml <<EOF
           enable: true
           token: ${USER_TOKEN}
           completed: false
@@ -64,13 +64,13 @@ jobs:
           USERS_JSON: ${{ secrets.USERS_JSON }}
         run: |
           if [ -n "$USERS_JSON" ]; then
-            echo '$USERS_JSON' | jq -c '.[]' 2>/dev/null | while read -r user; do
+            echo "$USERS_JSON" | jq -c '.[]' 2>/dev/null | while read -r user; do
               username=$(echo "$user" | jq -r '.username')
               token=$(echo "$user" | jq -r '.token')
               auto_replenish=$(echo "$user" | jq -r '.auto_replenish // "true"')
               retry_times=$(echo "$user" | jq -r '.retry_times // "3"')
               
-              cat > "config/${username}.yaml" << EOF
+              cat > "config/${username}.yaml" <<EOF
               enable: true
               token: ${token}
               completed: false
@@ -95,7 +95,7 @@ jobs:
           QMSG_KEY: ${{ secrets.QMSG_KEY }}
         run: |
           if [ "$PUSH_ENABLE" = "true" ] && [ -n "$QMSG_KEY" ]; then
-            cat > config/push.ini << EOF
+            cat > config/push.ini <<EOF
             [setting]
             enable = true
             push_level = ${PUSH_LEVEL}
